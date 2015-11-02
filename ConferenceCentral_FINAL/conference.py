@@ -37,6 +37,10 @@ from models import ConferenceQueryForm
 from models import ConferenceQueryForms
 from models import TeeShirtSize
 
+from models import Session
+from models import SessionForm
+from models import SessionForms
+
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
 from settings import IOS_CLIENT_ID
@@ -84,6 +88,15 @@ CONF_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
 )
 
+SESSION_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+)
+
+SESSION_POST_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
+    websafeConferenceKey=messages.StringField(1),
+)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -98,18 +111,22 @@ class ConferenceApi(remote.Service):
     def _copyConferenceToForm(self, conf, displayName):
         """Copy relevant fields from Conference to ConferenceForm."""
         cf = ConferenceForm()
+        print "** ConferenceForm() = ", cf
         for field in cf.all_fields():
             if hasattr(conf, field.name):
                 # convert Date to date string; just copy others
                 if field.name.endswith('Date'):
                     setattr(cf, field.name, str(getattr(conf, field.name)))
+                    print "** Date = ", setattr(cf, field.name, str(getattr(conf, field.name)))
                 else:
                     setattr(cf, field.name, getattr(conf, field.name))
+                    print "** Other Conf Fields = ", setattr(cf, field.name, getattr(conf, field.name))
             elif field.name == "websafeKey":
                 setattr(cf, field.name, conf.key.urlsafe())
         if displayName:
             setattr(cf, 'organizerDisplayName', displayName)
         cf.check_initialized()
+        print "** CF = ", cf
         return cf
 
 
@@ -326,6 +343,107 @@ class ConferenceApi(remote.Service):
                 items=[self._copyConferenceToForm(conf, names[conf.organizerUserId]) for conf in \
                 conferences]
         )
+
+
+# - - - Session objects - - - - - - - - - - - - - - - - - - -
+    def _createSessionObject(self, request):
+        """Create a Session object."""
+        # preload necessary data items
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        if not request.name:
+            raise endpoints.BadRequestException("Session 'name' field required")
+
+        # get key of conference to create sessions for
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        # check that conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # check that user is owner
+        if user_id != conf.organizerUserId:
+            raise endpoints.ForbiddenException(
+                'Only the owner can update the conference.')
+
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+        wsck = data['websafeConferenceKey']
+        p_key = ndb.Key(Conference, request.websafeConferenceKey).get()
+        c_id = Session.allocate_ids(size=1, parent=p_key)[0]
+        c_key = ndb.Key(Session, c_id, parent=p_key)
+        
+        data['startTime']= datetime.strptime(data['startTime'], '%H:%M').time()
+
+        data['date']= datetime.strptime(data['date'], '%Y-%m-%d').date()
+      
+        data['key'] = c_key
+       
+        Session(**data).put()
+ 
+        return request
+
+
+    @endpoints.method(SessionForm, SessionForm, path='session', http_method='POST', name='createSession')
+    def createSession(self, request):
+        """Create new session for a conference."""
+        return self._createSessionObject(request)
+    # End code test to create session
+
+
+    @endpoints.method(CONF_GET_REQUEST, SessionForms, 
+        path='getConferenceSessions/{websafeConferenceKey}',
+        http_method='POST',
+        name='getConferenceSessions')
+    def getConferenceSessions(self, request):
+        '''Given a conference, return all sessions'''
+        # make sure user is logged in
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        # get conference key to use to find all sessions in this conference
+        conferenceKey = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        print "** ConferenceKey = ", conferenceKey
+        ck = getattr(conferenceKey, "key")
+        print "** Key = ", ck
+        print "** WSCK = ", request.websafeConferenceKey
+        
+        # create ancestor query to get all sessions in this conference
+        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey) # Works
+        print "** Sessions =  ", sessions
+        for session in sessions:
+            print "** Each Session = ", session
+        
+        # return sessions in this conference
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )
+
+    def _copySessionToForm(self, sess):
+        """Copy relevant fields from Session to SessionForm."""
+        sf = SessionForm()
+        print "-----------"
+        for field in sf.all_fields():
+            if hasattr(sess, field.name):
+                # convert Date to date string; just copy others
+                # For converted fields, only do operation if not null # TODO
+                if field.name == 'date':
+                    setattr(sf, field.name, str(getattr(sess, field.name)))
+                elif field.name == 'startTime':
+                    setattr(sf, field.name, str(getattr(sess, field.name)))
+                else:
+                    setattr(sf, field.name, getattr(sess, field.name))        
+            elif field.name == "websafeConferenceKey":
+                setattr(sf, field.name, sess.key.urlsafe())
+        sf.check_initialized()
+        print "** SF = ", sf
+        return sf
+
+
 
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
