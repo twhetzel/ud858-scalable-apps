@@ -40,6 +40,9 @@ from models import TeeShirtSize
 from models import Session
 from models import SessionForm
 from models import SessionForms
+from models import SessionQueryForm
+from models import SessionQueryForms
+from models import SESSION_CONTAINER
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -97,8 +100,8 @@ SESSION_POST_REQUEST = endpoints.ResourceContainer(
     SessionForm,
     websafeConferenceKey=messages.StringField(1),
 )
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# - - - Define subclass of remote.Service  - - - - - - - - -
 
 @endpoints.api(name='conference', version='v1', audiences=[ANDROID_AUDIENCE],
     allowed_client_ids=[WEB_CLIENT_ID, API_EXPLORER_CLIENT_ID, ANDROID_CLIENT_ID, IOS_CLIENT_ID],
@@ -111,22 +114,18 @@ class ConferenceApi(remote.Service):
     def _copyConferenceToForm(self, conf, displayName):
         """Copy relevant fields from Conference to ConferenceForm."""
         cf = ConferenceForm()
-        print "** ConferenceForm() = ", cf
         for field in cf.all_fields():
             if hasattr(conf, field.name):
                 # convert Date to date string; just copy others
                 if field.name.endswith('Date'):
                     setattr(cf, field.name, str(getattr(conf, field.name)))
-                    print "** Date = ", setattr(cf, field.name, str(getattr(conf, field.name)))
                 else:
                     setattr(cf, field.name, getattr(conf, field.name))
-                    print "** Other Conf Fields = ", setattr(cf, field.name, getattr(conf, field.name))
             elif field.name == "websafeKey":
                 setattr(cf, field.name, conf.key.urlsafe())
         if displayName:
             setattr(cf, 'organizerDisplayName', displayName)
         cf.check_initialized()
-        print "** CF = ", cf
         return cf
 
 
@@ -346,6 +345,7 @@ class ConferenceApi(remote.Service):
 
 
 # - - - Session objects - - - - - - - - - - - - - - - - - - -
+
     def _createSessionObject(self, request):
         """Create a Session object."""
         # preload necessary data items
@@ -356,6 +356,10 @@ class ConferenceApi(remote.Service):
 
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
+
+        # Make sure a websafeConferenceKey is provided (for testing)
+        if not request.websafeConferenceKey:
+            raise endpoints.BadRequestException("Session 'websafeConferenceKey' field required. Use form filters to add websafeConferenceKey")
 
         # get key of conference to create sessions for
         conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
@@ -382,18 +386,18 @@ class ConferenceApi(remote.Service):
         data['key'] = c_key
        
         Session(**data).put()
- 
         return request
 
-
-    @endpoints.method(SessionForm, SessionForm, path='session', http_method='POST', name='createSession')
+    @endpoints.method(SessionForm, SessionForm, path='session', 
+        http_method='POST', name='createSession')
     def createSession(self, request):
         """Create new session for a conference."""
         return self._createSessionObject(request)
-    # End code test to create session
 
 
-    @endpoints.method(CONF_GET_REQUEST, SessionForms, 
+    # Replace 1st arg of CONF_GET_REQUEST with SESSION_CONTAINER
+    # to use ResourceContainer as suggeted by warning message  
+    @endpoints.method(SESSION_CONTAINER, SessionForms, 
         path='getConferenceSessions/{websafeConferenceKey}',
         http_method='POST',
         name='getConferenceSessions')
@@ -423,10 +427,10 @@ class ConferenceApi(remote.Service):
             items=[self._copySessionToForm(session) for session in sessions]
         )
 
+    
     def _copySessionToForm(self, sess):
         """Copy relevant fields from Session to SessionForm."""
         sf = SessionForm()
-        print "-----------"
         for field in sf.all_fields():
             if hasattr(sess, field.name):
                 # convert Date to date string; just copy others
@@ -440,14 +444,72 @@ class ConferenceApi(remote.Service):
             elif field.name == "websafeConferenceKey":
                 setattr(sf, field.name, sess.key.urlsafe())
         sf.check_initialized()
-        print "** SF = ", sf
         return sf
 
 
+    def _getQuerySession(self, request):
+        """Return formatted query from the submitted filters."""
+        q = Session.query() # Should websafeConferenceKey be added to query here?
+        print "** Q = ", q
+        inequality_filter, filters = self._formatFilters(request.filters)
+
+        # If exists, sort on inequality filter first
+        if not inequality_filter:
+            q = q.order(Session.name)
+        else:
+            q = q.order(ndb.GenericProperty(inequality_filter))
+            q = q.order(Session.name)
+
+        for filtr in filters:
+            if filtr["field"] in ["duration"]:
+                filtr["value"] = int(filtr["value"])
+            elif filtr["field"] in ["date", "startTime"]:
+                filtr["value"] = str(filtr["value"])
+            formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
+            q = q.filter(formatted_query)
+        return q
+    
+
+    @endpoints.method(SESSION_CONTAINER, SessionForms,
+        path='getConferenceSessionsByType/{websafeConferenceKey}/{typeOfSession}',
+        http_method='POST',
+        name='getConferenceSessionsByType')
+    def getConferenceSessionsByType(self, request):
+        '''Given a conference, return all sessions of a specified type'''
+        
+        # make sure user is logged in
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        # get conference key to use to find all sessions in this conference
+        conferenceKey = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        print "** ConferenceKey = ", conferenceKey
+        ck = getattr(conferenceKey, "key")
+        print "** Key = ", ck
+        print "** WSCK = ", request.websafeConferenceKey
+
+        print "** TypeOfSession = ", request.typeOfSession
+        for sessionType in request.typeOfSession:
+            print "** Each Type of Session = ", sessionType  # Should typeOfSession be repeated in model?
+
+        
+        # create ancestor query to get all sessions in this conference
+        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey) # Works
+        #sessions = Session.query()
+        sessions = sessions.filter(Session.typeOfSession == sessionType) 
+        print "** Sessions =  ", sessions
+        for session in sessions:
+            print "** Each Session = ", session
+
+        # return sessions in this conference
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )
 
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
-
     def _copyProfileToForm(self, prof):
         """Copy relevant fields from Profile to ProfileForm."""
         # copy relevant fields from Profile to ProfileForm
