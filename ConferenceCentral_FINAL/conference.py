@@ -43,6 +43,7 @@ from models import SessionForms
 from models import SessionQueryForm
 from models import SessionQueryForms
 from models import SESSION_CONTAINER
+from models import SPEAKER_CONTAINER
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -447,6 +448,7 @@ class ConferenceApi(remote.Service):
         return sf
 
 
+    # TODO - Delete if not needed 
     def _getQuerySession(self, request):
         """Return formatted query from the submitted filters."""
         q = Session.query() # Should websafeConferenceKey be added to query here?
@@ -470,6 +472,7 @@ class ConferenceApi(remote.Service):
         return q
     
 
+    # Get Sessions by Type 
     @endpoints.method(SESSION_CONTAINER, SessionForms,
         path='getConferenceSessionsByType/{websafeConferenceKey}/{typeOfSession}',
         http_method='POST',
@@ -502,6 +505,45 @@ class ConferenceApi(remote.Service):
         print "** Sessions =  ", sessions
         for session in sessions:
             print "** Each Session = ", session
+
+        # return sessions in this conference
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )
+
+
+    # Get Sessions by Speaker
+    @endpoints.method(SPEAKER_CONTAINER, SessionForms,
+        path='getSessionsBySpeaker/{speaker}',
+        http_method='POST',
+        name='getSessionsBySpeaker')
+    def getSessionsBySpeaker(self, request):
+        '''Given a speaker, return all sessions given by this \
+        particular speaker, across all conferences'''
+        
+        # make sure user is logged in
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        # get speaker value from form request
+        sessionSpeakerOfInterest = request.speaker
+        print "** Speaker = ", sessionSpeakerOfInterest
+    
+        # query for conferences
+        conferences = Conference.query()
+        for conf in conferences:
+            ck = getattr(conf, 'key')
+            wsck = ck.urlsafe()
+            print "** Conference Key = ", wsck
+            #print "** Conference = ", getattr(conf, 'key') # Prints non-websafe key
+            
+            # For each conference, get Sessions for the Conference filtered by Speaker
+            sessions = Session.query(Session.websafeConferenceKey == wsck)
+            sessions = sessions.filter(Session.speaker == sessionSpeakerOfInterest)
+            for session in sessions:
+                print "** Sessions filtered By Speaker = ", session
 
         # return sessions in this conference
         return SessionForms(
