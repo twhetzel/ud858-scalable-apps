@@ -27,6 +27,7 @@ class Profile(ndb.Model):
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')
     conferenceKeysToAttend = ndb.StringProperty(repeated=True)
+    sessionKeysForWishlist = ndb.StringProperty(repeated=True) # New for wishlist 
 
 class ProfileMiniForm(messages.Message):
     """ProfileMiniForm -- update Profile form message"""
@@ -39,6 +40,7 @@ class ProfileForm(messages.Message):
     mainEmail = messages.StringField(2)
     teeShirtSize = messages.EnumField('TeeShirtSize', 3)
     conferenceKeysToAttend = messages.StringField(4, repeated=True)
+    sessionKeysForWishlist = messages.StringField(5, repeated=True)
 
 class StringMessage(messages.Message):
     """StringMessage-- outbound (single) string message"""
@@ -76,6 +78,7 @@ class ConferenceForm(messages.Message):
     websafeKey      = messages.StringField(11)
     organizerDisplayName = messages.StringField(12)
 
+# Handle returning a list of conferences 
 class ConferenceForms(messages.Message):
     """ConferenceForms -- multiple Conference outbound form message"""
     items = messages.MessageField(ConferenceForm, 1, repeated=True)
@@ -90,6 +93,7 @@ class Session(ndb.Model):
     typeOfSession           = ndb.StringProperty(repeated=True)
     date                    = ndb.DateProperty()
     startTime               = ndb.TimeProperty()
+
 
 class SessionForm(messages.Message):
     """SessionForm -- Session outbound form message"""
@@ -106,10 +110,23 @@ class SessionForms(messages.Message):
     """SessionForms -- multiple Session outbound form message"""
     items = messages.MessageField(SessionForm, 1, repeated=True)
 
+
+class SessionWishlist(ndb.Model):
+    """SessionWishlist - SessionWishlist object"""
+    sessionKeysForWishlist = ndb.StringProperty()
+
+
+
 SESSION_CONTAINER = endpoints.ResourceContainer(
     SessionForm,
     websafeConferenceKey = messages.StringField(1),
-    typeOfSession = messages.StringField(6, repeated=True) 
+    typeOfSession = messages.StringField(6, repeated=True), 
+    )
+
+
+SPEAKER_CONTAINER = endpoints.ResourceContainer(
+    SessionForm,
+    speaker = messages.StringField(4) 
     )
 
 
@@ -131,12 +148,14 @@ class TeeShirtSize(messages.Enum):
     XXXL_M = 14
     XXXL_W = 15
 
+# Handle a single filter when querying Conferences
 class ConferenceQueryForm(messages.Message):
     """ConferenceQueryForm -- Conference query inbound form message"""
     field = messages.StringField(1)
     operator = messages.StringField(2)
     value = messages.StringField(3)
 
+# Handle multiple query filters 
 class ConferenceQueryForms(messages.Message):
     """ConferenceQueryForms -- multiple ConferenceQueryForm inbound form message"""
     filters = messages.MessageField(ConferenceQueryForm, 1, repeated=True)
