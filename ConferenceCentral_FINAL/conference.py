@@ -107,10 +107,6 @@ WISHLIST_GET_REQUEST = endpoints.ResourceContainer(
     sessionKey=messages.StringField(1),
 )
 
-WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
-    SessionForm,
-    sessionKey=messages.StringField(1),
-)
 
 # - - - Define subclass of remote.Service  - - - - - - - - -
 
@@ -571,26 +567,21 @@ class ConferenceApi(remote.Service):
         """Add or remove Session from Wishlist."""
         retval = None
         prof = self._getProfileFromUser() # get user Profile
-        print "** DEBUG Profile: ", prof
-
+        
         # check if session exists given sessionKey
         # get session; check that it exists
         session_key = request.sessionKey
-        print "** DEBUG session_key: ", session_key
-
+        
         session = ndb.Key(urlsafe=session_key).get()
-        print "** DEBUG Session: ", session
-
+        
         if not session:
             raise endpoints.NotFoundException(
                 'No session found with key: %s' % session_key)
    
         # add session to wishlist
         if reg:
-            print "** DEBUG - Add Session to Wishlist **"
             # check if user already registered otherwise add
             if session_key in prof.sessionKeysForWishlist:
-                print "** DEBUG sessionKeysForWishlist(reg=True): ", prof.sessionKeysForWishlist
                 raise ConflictException(
                     "You have already added this session to your wishlist")
             # add session to wishlist
@@ -599,21 +590,16 @@ class ConferenceApi(remote.Service):
 
         # remove session from wishlist
         else:
-            print "** DEBUG - Removing Session from Wishlist **"
             # check if session already in wishlist
             if session_key in prof.sessionKeysForWishlist:
-                print "** DEBUG sessionKeysForWishlist(else/if): ", prof.sessionKeysForWishlist
-
+        
                 # remove session from wishlist
                 prof.sessionKeysForWishlist.remove(session_key)
                 retval = True
             else:
-                raise ConflictException("Something went wrong when removing the \
-                    Session from the Wishlist")
                 retval = False
 
         # write things back to the datastore & return
-        print "** DEBUG prof: ", prof
         prof.put()
         return BooleanMessage(data=retval)
 
@@ -636,12 +622,26 @@ class ConferenceApi(remote.Service):
         return self._sessionWishlistRegistration(request, reg=False)    
 
 
-    # Get Wishlist of Sessions
-    # @endpoints.method(message_types.VoidMessage, SessionForms, 
-    #     path='sessions/wishlist',
-    #     http_method="GET", name='getSessionsInWishlist')
+    # Get list of Sessions in Wishlist
+    # Template: getConferencesToAttend
+    @endpoints.method(message_types.VoidMessage, SessionForms, 
+        path='sessions/wishlist',
+        http_method="GET", name='getSessionsInWishlist')
+    def getSessionsInWishlist(self, request):
+        """Get list of sessions in wishlist."""
+        prof = self._getProfileFromUser() # get user Profile
+        print "** prof: ", prof
+        
+        session_keys = [ndb.Key(urlsafe=wsck) for wsck in prof.sessionKeysForWishlist]
+        print "** session_keys: ", session_keys
 
-    
+        sessions = ndb.get_multi(session_keys)
+        print "** sessions: ", sessions
+
+        # return set of SessionForm objects per Session
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )    
     
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
