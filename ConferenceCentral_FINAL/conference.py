@@ -102,6 +102,16 @@ SESSION_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
 )
 
+WISHLIST_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    sessionKey=messages.StringField(1),
+)
+
+WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
+    sessionKey=messages.StringField(1),
+)
+
 # - - - Define subclass of remote.Service  - - - - - - - - -
 
 @endpoints.api(name='conference', version='v1', audiences=[ANDROID_AUDIENCE],
@@ -379,15 +389,18 @@ class ConferenceApi(remote.Service):
         p_key = ndb.Key(Conference, request.websafeConferenceKey).get()
         c_id = Session.allocate_ids(size=1, parent=p_key)[0]
         c_key = ndb.Key(Session, c_id, parent=p_key)
-        
-        data['startTime']= datetime.strptime(data['startTime'], '%H:%M').time()
+      
 
+        # TODO: Add check to handle if value is null for time and date 
+        data['startTime']= datetime.strptime(data['startTime'], '%H:%M').time()
         data['date']= datetime.strptime(data['date'], '%Y-%m-%d').date()
       
+
         data['key'] = c_key
        
         Session(**data).put()
         return request
+
 
     @endpoints.method(SessionForm, SessionForm, path='session', 
         http_method='POST', name='createSession')
@@ -550,6 +563,86 @@ class ConferenceApi(remote.Service):
             items=[self._copySessionToForm(session) for session in sessions]
         )
 
+
+# - - - Sessions in User Wishlist - - - - - - - - - - - - - - 
+    # Template: _conferenceRegistration
+    @ndb.transactional(xg=True)
+    def _sessionWishlistRegistration(self, request, reg=True):
+        """Add or remove Session from Wishlist."""
+        retval = None
+        prof = self._getProfileFromUser() # get user Profile
+        print "** DEBUG Profile: ", prof
+
+        # check if session exists given sessionKey
+        # get session; check that it exists
+        session_key = request.sessionKey
+        print "** DEBUG session_key: ", session_key
+
+        session = ndb.Key(urlsafe=session_key).get()
+        print "** DEBUG Session: ", session
+
+        if not session:
+            raise endpoints.NotFoundException(
+                'No session found with key: %s' % session_key)
+   
+        # add session to wishlist
+        if reg:
+            print "** DEBUG - Add Session to Wishlist **"
+            # check if user already registered otherwise add
+            if session_key in prof.sessionKeysForWishlist:
+                print "** DEBUG sessionKeysForWishlist(reg=True): ", prof.sessionKeysForWishlist
+                raise ConflictException(
+                    "You have already added this session to your wishlist")
+            # add session to wishlist
+            prof.sessionKeysForWishlist.append(session_key)
+            retval = True
+
+        # remove session from wishlist
+        else:
+            print "** DEBUG - Removing Session from Wishlist **"
+            # check if session already in wishlist
+            if session_key in prof.sessionKeysForWishlist:
+                print "** DEBUG sessionKeysForWishlist(else/if): ", prof.sessionKeysForWishlist
+
+                # remove session from wishlist
+                prof.sessionKeysForWishlist.remove(session_key)
+                retval = True
+            else:
+                raise ConflictException("Something went wrong when removing the \
+                    Session from the Wishlist")
+                retval = False
+
+        # write things back to the datastore & return
+        print "** DEBUG prof: ", prof
+        prof.put()
+        return BooleanMessage(data=retval)
+
+
+    # Add Session to Wishlist
+    @endpoints.method(WISHLIST_GET_REQUEST, BooleanMessage,
+            path='session/{sessionKey}',
+            http_method='POST', name='addSessionToWishlist')
+    def addSessionToWishlist(self, request):
+        """Add session to Wishlist."""
+        return self._sessionWishlistRegistration(request)
+        
+    
+    # Delete session from Wishlist 
+    @endpoints.method(WISHLIST_GET_REQUEST, BooleanMessage,
+            path='session/{sessionKey}',
+            http_method='DELETE', name='removeSessionFromWishlist')
+    def removeSessionFromWishlist(self, request):
+        """Remove session from Wishlist."""
+        return self._sessionWishlistRegistration(request, reg=False)    
+
+
+    # Get Wishlist of Sessions
+    # @endpoints.method(message_types.VoidMessage, SessionForms, 
+    #     path='sessions/wishlist',
+    #     http_method="GET", name='getSessionsInWishlist')
+
+    
+    
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
     def _copyProfileToForm(self, prof):
