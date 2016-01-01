@@ -12,6 +12,7 @@ created by wesc on 2014 apr 21
 
 __author__ = 'wesc+api@google.com (Wesley Chun)'
 
+import time
 
 from datetime import datetime
 
@@ -623,7 +624,6 @@ class ConferenceApi(remote.Service):
 
 
     # Get list of Sessions in Wishlist
-    # Template: getConferencesToAttend
     @endpoints.method(message_types.VoidMessage, SessionForms, 
         path='sessions/wishlist',
         http_method="GET", name='getSessionsInWishlist')
@@ -643,6 +643,85 @@ class ConferenceApi(remote.Service):
             items=[self._copySessionToForm(session) for session in sessions]
         )    
     
+    
+    # Get sessions that are 30 min in length
+    @endpoints.method(message_types.VoidMessage, SessionForms, 
+        path='sessions/shortSessions',
+        http_method="GET", name='getShortSessions')
+    def getShortSessions(self, request):
+        """Get list of short (30 min or less) sessions."""
+        prof = self._getProfileFromUser() # get user Profile
+        print "** prof: ", prof
+        
+        sessionLength = 30
+        sessions = Session.query(Session.duration <= sessionLength)
+        print "** sessions: ", sessions
+
+        # return set of SessionForm objects per Session
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )  
+
+    
+    # Get conferences that contain Android in the name
+    @endpoints.method(message_types.VoidMessage, ConferenceForms, 
+        path='conferences/keyword',
+        http_method="GET", name='getConferencesByKeyword')
+    def getConferencesByKeyword(self, request):
+        """Get list of conferences by keyword."""
+        prof = self._getProfileFromUser() # get user Profile
+        print "** prof: ", prof
+        
+        # TODO: Update to enable wildcard like matching functionality
+        # TODo: Use ComputedProperty to make query case insenstive, 
+        # https://cloud.google.com/appengine/docs/python/ndb/properties#computed
+        keyword = 'Android'
+        conferences = Conference.query(Conference.name == keyword)
+        print "** conferences: ", conferences
+
+        # return set of ConferenceForm objects
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, "") for conf in conferences]
+        )  
+    
+    
+    # Get sessions that start before 7:00pm and are not workshops
+    @endpoints.method(message_types.VoidMessage, SessionForms, 
+        path='sessions/getMySessionsOfInterest',
+        http_method="GET", name='getMySessionsOfInterest')
+    def getMySessionsOfInterest(self, request):
+        """Get sessions that start before 7pm and are not workshops."""
+        prof = self._getProfileFromUser() # get user Profile
+        print "** prof: ", prof
+        
+        sessionsTypesToAvoid = 'workshop'
+        sessions = Session.query(Session.typeOfSession != sessionsTypesToAvoid)
+        print "** Session Types to Avoid: ", sessions
+        
+
+        mySessionsOfInterest = []
+        sessionCutOff = '19:00:00'
+        # Convert to datetime.time
+        sessionCutOffTime = datetime.strptime(sessionCutOff, "%H:%M:%S").time()
+        
+        for session in sessions:
+            print "** Session Types to Avoid - StartTime: ", session.startTime
+            if(session.startTime <= sessionCutOffTime):
+                print "** Session Of Interest: ", session
+                mySessionsOfInterest.append(session)
+        
+        # Loop through non-workshop sessions to find those that start before 19:00
+        # for nonWorkshopSession in sessions:
+        #     sessionOfInterest = Session.query(Session.startTime <= sessionCutOffTime)
+        #     print "** Session Of Interest(query): ", sessionOfInterest
+        #     #mySessionsOfInterest.append(sessionOfInterest)
+
+        # return set of SessionForm objects per Session
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in mySessionsOfInterest]
+        )  
+
+
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
     def _copyProfileToForm(self, prof):
