@@ -10,7 +10,7 @@ To run your own instance of this app, add your Google App Engine Project ID to a
 [1] https://www.udacity.com/course/developing-scalable-apps-in-python--ud858-nd <br>
 
 ## Requirements
-Python == 2.7
+Python == 2.7 <br>
 Project Registered on Google Developers Console (https://console.developers.google.com) <br>
 
 ## Usage
