@@ -13,4 +13,4 @@ To run your own instance of this app, add your Google App Engine Project ID to a
 Python == 2.7
 
 ## Usage
-TODO: Add documentation on how to run on local host and deploy to App Engine 
+See folder ConferenceCentral_FINAL for more details and final running project code.
