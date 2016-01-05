@@ -56,6 +56,7 @@ from utils import getUserId
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
+MEMCACHE_FEATURED_SPEAKERS_KEY = "FEATURED_SPEAKERS"
 ANNOUNCEMENT_TPL = ('Last chance to attend! The following conferences '
                     'are nearly sold out: %s')
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -388,15 +389,46 @@ class ConferenceApi(remote.Service):
         c_key = ndb.Key(Session, c_id, parent=p_key)
       
 
-        # TODO: Add check to handle if value is null for time and date 
-        data['startTime']= datetime.strptime(data['startTime'], '%H:%M').time()
-        data['date']= datetime.strptime(data['date'], '%Y-%m-%d').date()
+        # Make startTime and date required fields
+        if not data['startTime']:
+            raise endpoints.BadRequestException("Start time is required")
+        else:
+            data['startTime']= datetime.strptime(data['startTime'], '%H:%M').time()
+            print "** StartTime: ", data['startTime']
+        
+        if not data['date']:
+            raise endpoints.BadRequestException("Date is required.")
+        else:
+            data['date']= datetime.strptime(data['date'], '%Y-%m-%d').date()
       
-
         data['key'] = c_key
-       
+              
+        # If featured speaker (speaker for >1 session in this conference), add to memcache
+        featuredSpeaker = False
+        # create ancestor query to get all sessions in this conference
+        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey)
+        for session in sessions:
+            if (((data['speaker']) == session.speaker) and (data['speaker'] != None)):
+                featuredSpeaker = True
+                print "Speaker '%s' is a featured speaker \n" % data['speaker']
+                featuredSpeaker = data['speaker']
+                break
+            else:
+                print "This speaker '%s' is _not_ a featured speaker \n" % data['speaker']
+
+        if featuredSpeaker:
+            memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, featuredSpeaker)
+        
         Session(**data).put()
         return request
+
+
+    # Get Featured Speaker from Memcache
+    @endpoints.method(message_types.VoidMessage, StringMessage, path="featuredSpeaker", 
+       http_method='GET', name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Get Featured Speaker from Memcache."""
+        return StringMessage(data=memcache.get(MEMCACHE_FEATURED_SPEAKERS_KEY) or "")
 
 
     @endpoints.method(SessionForm, SessionForm, path='session', 
@@ -694,11 +726,12 @@ class ConferenceApi(remote.Service):
         prof = self._getProfileFromUser() # get user Profile
         print "** prof: ", prof
         
+        # Get sessions that are not workshops
         sessionsTypesToAvoid = 'workshop'
         sessions = Session.query(Session.typeOfSession != sessionsTypesToAvoid)
         print "** Session Types to Avoid: ", sessions
         
-
+        # Find non-workshop sessions that start before 7pm
         mySessionsOfInterest = []
         sessionCutOff = '19:00:00'
         # Convert to datetime.time
@@ -710,7 +743,7 @@ class ConferenceApi(remote.Service):
                 print "** Session Of Interest: ", session
                 mySessionsOfInterest.append(session)
         
-        # Loop through non-workshop sessions to find those that start before 19:00
+        # Alternate: Loop through non-workshop sessions to find those that start before 7pm
         # for nonWorkshopSession in sessions:
         #     sessionOfInterest = Session.query(Session.startTime <= sessionCutOffTime)
         #     print "** Session Of Interest(query): ", sessionOfInterest
