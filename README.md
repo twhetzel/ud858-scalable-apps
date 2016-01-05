@@ -11,6 +11,7 @@ To run your own instance of this app, add your Google App Engine Project ID to a
 
 ## Requirements
 Python == 2.7
+Project Registered on Google Developers Console (https://console.developers.google.com) <br>
 
 ## Usage
 See folder ConferenceCentral_FINAL for more details and final running project code.
