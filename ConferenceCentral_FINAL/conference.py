@@ -230,6 +230,7 @@ class ConferenceApi(remote.Service):
         return self._copyConferenceToForm(conf, getattr(prof, 'displayName'))
 
 
+    # Create a Conference 
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference',
             http_method='POST', name='createConference')
     def createConference(self, request):
@@ -237,6 +238,7 @@ class ConferenceApi(remote.Service):
         return self._createConferenceObject(request)
 
 
+    # Update Conference details
     @endpoints.method(CONF_POST_REQUEST, ConferenceForm,
             path='conference/{websafeConferenceKey}',
             http_method='PUT', name='updateConference')
@@ -245,6 +247,7 @@ class ConferenceApi(remote.Service):
         return self._updateConferenceObject(request)
 
 
+    # Get details about a Conference 
     @endpoints.method(CONF_GET_REQUEST, ConferenceForm,
             path='conference/{websafeConferenceKey}',
             http_method='GET', name='getConference')
@@ -260,6 +263,7 @@ class ConferenceApi(remote.Service):
         return self._copyConferenceToForm(conf, getattr(prof, 'displayName'))
 
 
+    # Get Conferences you have created 
     @endpoints.method(message_types.VoidMessage, ConferenceForms,
             path='getConferencesCreated',
             http_method='POST', name='getConferencesCreated')
@@ -403,6 +407,7 @@ class ConferenceApi(remote.Service):
       
         data['key'] = c_key
               
+        # TODO: Move this work to a Task Queue     
         # If featured speaker (speaker for >1 session in this conference), add to memcache
         featuredSpeaker = False
         # create ancestor query to get all sessions in this conference
@@ -418,7 +423,8 @@ class ConferenceApi(remote.Service):
 
         if featuredSpeaker:
             memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, featuredSpeaker)
-        
+        # End move to Task Queue
+
         Session(**data).put()
         return request
 
@@ -430,16 +436,16 @@ class ConferenceApi(remote.Service):
         """Get Featured Speaker from Memcache."""
         return StringMessage(data=memcache.get(MEMCACHE_FEATURED_SPEAKERS_KEY) or "")
 
-
+    
+    # Create a new Session
     @endpoints.method(SessionForm, SessionForm, path='session', 
         http_method='POST', name='createSession')
     def createSession(self, request):
         """Create new session for a conference."""
         return self._createSessionObject(request)
 
-
-    # Replace 1st arg of CONF_GET_REQUEST with SESSION_CONTAINER
-    # to use ResourceContainer as suggeted by warning message  
+    
+    # Get Sessions for a Conference
     @endpoints.method(SESSION_CONTAINER, SessionForms, 
         path='getConferenceSessions/{websafeConferenceKey}',
         http_method='POST',
@@ -489,11 +495,10 @@ class ConferenceApi(remote.Service):
         sf.check_initialized()
         return sf
 
-
-    # TODO - Delete if not needed 
+ 
     def _getQuerySession(self, request):
         """Return formatted query from the submitted filters."""
-        q = Session.query() # Should websafeConferenceKey be added to query here?
+        q = Session.query() 
         print "** Q = ", q
         inequality_filter, filters = self._formatFilters(request.filters)
 
@@ -537,12 +542,10 @@ class ConferenceApi(remote.Service):
 
         print "** TypeOfSession = ", request.typeOfSession
         for sessionType in request.typeOfSession:
-            print "** Each Type of Session = ", sessionType  # Should typeOfSession be repeated in model?
-
-        
+            print "** Each Type of Session = ", sessionType
+     
         # create ancestor query to get all sessions in this conference
-        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey) # Works
-        #sessions = Session.query()
+        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey)
         sessions = sessions.filter(Session.typeOfSession == sessionType) 
         print "** Sessions =  ", sessions
         for session in sessions:
@@ -594,7 +597,7 @@ class ConferenceApi(remote.Service):
 
 
 # - - - Sessions in User Wishlist - - - - - - - - - - - - - - 
-    # Template: _conferenceRegistration
+    # Add sessions to wishlist 
     @ndb.transactional(xg=True)
     def _sessionWishlistRegistration(self, request, reg=True):
         """Add or remove Session from Wishlist."""
@@ -705,7 +708,7 @@ class ConferenceApi(remote.Service):
         print "** prof: ", prof
         
         # TODO: Update to enable wildcard like matching functionality
-        # TODo: Use ComputedProperty to make query case insenstive, 
+        # TODO: Use ComputedProperty to make query case insenstive, 
         # https://cloud.google.com/appengine/docs/python/ndb/properties#computed
         keyword = 'Android'
         conferences = Conference.query(Conference.name == keyword)
@@ -731,7 +734,7 @@ class ConferenceApi(remote.Service):
         sessions = Session.query(Session.typeOfSession != sessionsTypesToAvoid)
         print "** Session Types to Avoid: ", sessions
         
-        # Find non-workshop sessions that start before 7pm
+        # Find non-workshop sessions that start before 7:00 pm
         mySessionsOfInterest = []
         sessionCutOff = '19:00:00'
         # Convert to datetime.time
@@ -743,12 +746,6 @@ class ConferenceApi(remote.Service):
                 print "** Session Of Interest: ", session
                 mySessionsOfInterest.append(session)
         
-        # Alternate: Loop through non-workshop sessions to find those that start before 7pm
-        # for nonWorkshopSession in sessions:
-        #     sessionOfInterest = Session.query(Session.startTime <= sessionCutOffTime)
-        #     print "** Session Of Interest(query): ", sessionOfInterest
-        #     #mySessionsOfInterest.append(sessionOfInterest)
-
         # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(session) for session in mySessionsOfInterest]
@@ -793,7 +790,7 @@ class ConferenceApi(remote.Service):
             )
             profile.put()
 
-        return profile      # return Profile
+        return profile
 
 
     def _doProfile(self, save_request=None):
@@ -818,6 +815,7 @@ class ConferenceApi(remote.Service):
         return self._copyProfileToForm(prof)
 
 
+    # Get user profile
     @endpoints.method(message_types.VoidMessage, ProfileForm,
             path='profile', http_method='GET', name='getProfile')
     def getProfile(self, request):
@@ -825,6 +823,7 @@ class ConferenceApi(remote.Service):
         return self._doProfile()
 
 
+    # Save user profile
     @endpoints.method(ProfileMiniForm, ProfileForm,
             path='profile', http_method='POST', name='saveProfile')
     def saveProfile(self, request):
@@ -918,6 +917,7 @@ class ConferenceApi(remote.Service):
         return BooleanMessage(data=retval)
 
 
+    # Get conferences you are registered for
     @endpoints.method(message_types.VoidMessage, ConferenceForms,
             path='conferences/attending',
             http_method='GET', name='getConferencesToAttend')
@@ -942,6 +942,7 @@ class ConferenceApi(remote.Service):
         )
 
 
+    # Register for conference - update registration status
     @endpoints.method(CONF_GET_REQUEST, BooleanMessage,
             path='conference/{websafeConferenceKey}',
             http_method='POST', name='registerForConference')
@@ -950,6 +951,7 @@ class ConferenceApi(remote.Service):
         return self._conferenceRegistration(request)
 
 
+    # Unregister from conference - update registration status
     @endpoints.method(CONF_GET_REQUEST, BooleanMessage,
             path='conference/{websafeConferenceKey}',
             http_method='DELETE', name='unregisterFromConference')
@@ -958,17 +960,13 @@ class ConferenceApi(remote.Service):
         return self._conferenceRegistration(request, reg=False)
 
 
+    # Endpoint to test using filters in queries
     @endpoints.method(message_types.VoidMessage, ConferenceForms,
             path='filterPlayground',
             http_method='GET', name='filterPlayground')
     def filterPlayground(self, request):
-        """Filter Playground"""
+        """Filter Playground - test using filters in queries."""
         q = Conference.query()
-        # field = "city"
-        # operator = "="
-        # value = "London"
-        # f = ndb.query.FilterNode(field, operator, value)
-        # q = q.filter(f)
         q = q.filter(Conference.city=="London")
         q = q.filter(Conference.topics=="Medical Innovations")
         q = q.filter(Conference.month==6)
