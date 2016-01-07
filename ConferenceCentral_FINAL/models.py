@@ -10,7 +10,7 @@ created/forked from conferences.py by wesc on 2014 may 24
 
 """
 
-__author__ = 'wesc+api@google.com (Wesley Chun)'
+__author__ = 'plwhetzel@gmail.com (Trish Whetzel)'
 
 import httplib
 import endpoints
@@ -94,9 +94,9 @@ class Session(ndb.Model):
     date                    = ndb.DateProperty()
     startTime               = ndb.TimeProperty()
 
-class Speaker(ndb.model):
-    """Speaker - the name of the person presenting one or more Sessions."""
-    name = ndb.StringProperty(required=True)
+# class Speaker(ndb.model):
+#     """Speaker - the name of the person presenting one or more Sessions."""
+#     name = ndb.StringProperty(required=True)
 
 class SessionForm(messages.Message):
     """SessionForm -- Session outbound form message"""
