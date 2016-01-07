@@ -10,7 +10,7 @@ created by wesc on 2014 apr 21
 
 """
 
-__author__ = 'wesc+api@google.com (Wesley Chun)'
+__author__ = 'plwhetzel@gmail.com (Trish Whetzel)'
 
 import time
 
@@ -393,40 +393,58 @@ class ConferenceApi(remote.Service):
         c_key = ndb.Key(Session, c_id, parent=p_key)
       
 
-        # Make startTime and date required fields
+        # check that startTime is provided
         if not data['startTime']:
             raise endpoints.BadRequestException("Start time is required")
         else:
             data['startTime']= datetime.strptime(data['startTime'], '%H:%M').time()
-            print "** StartTime: ", data['startTime']
-        
+            
+        # check that date is provided     
         if not data['date']:
             raise endpoints.BadRequestException("Date is required.")
         else:
             data['date']= datetime.strptime(data['date'], '%Y-%m-%d').date()
       
         data['key'] = c_key
-              
-        # TODO: Move this work to a Task Queue     
-        # If featured speaker (speaker for >1 session in this conference), add to memcache
-        featuredSpeaker = False
-        # create ancestor query to get all sessions in this conference
-        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey)
-        for session in sessions:
-            if (((data['speaker']) == session.speaker) and (data['speaker'] != None)):
-                featuredSpeaker = True
-                print "Speaker '%s' is a featured speaker \n" % data['speaker']
-                featuredSpeaker = data['speaker']
-                break
-            else:
-                print "This speaker '%s' is _not_ a featured speaker \n" % data['speaker']
-
-        if featuredSpeaker:
-            memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, featuredSpeaker)
-        # End move to Task Queue
 
         Session(**data).put()
+        # Push task to determine if speaker of this new 
+        # session should be set as the featured speaker
+        newSessionSpeaker = data['speaker']
+        print "** Use Task to eval newSessionSpeaker: %s \nfor Conference %s" % (newSessionSpeaker, wsck)
+        taskqueue.add(params={'newSessionSpeaker': newSessionSpeaker,
+            'websafeConferenceKey': wsck},
+            url='/tasks/set_featured_speaker'
+        )
         return request
+
+
+    # Use Push Task to determine featured speaker, a speaker that has 
+    # more than 1 session in a conference 
+    @staticmethod
+    def _cacheFeaturedSpeaker(newSessionSpeaker, websafeConferenceKey):
+        """Called when a new session is created and evaluates whether the 
+        speaker of the new session should be set as the featured speaker 
+        for the conference.
+        """     
+        print "** New Session Speaker: %s \n ** websafeConferenceKey: %s" % (newSessionSpeaker, websafeConferenceKey)
+
+        isFeaturedSpeaker = False
+        # create ancestor query to get all sessions in this conference
+        sessions = Session.query(Session.websafeConferenceKey == websafeConferenceKey)
+        print "** Sessions =  ", sessions
+
+        for session in sessions:
+            if ((newSessionSpeaker == session.speaker) and (newSessionSpeaker != None)):
+                isFeaturedSpeaker = True
+                print "Speaker '%s' is a featured speaker \n" % newSessionSpeaker
+                featuredSpeaker = newSessionSpeaker
+                break
+            else:
+                print "This speaker '%s' is _not_ a featured speaker \n" % newSessionSpeaker
+
+        if isFeaturedSpeaker:
+            memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, featuredSpeaker)
 
 
     # Get Featured Speaker from Memcache
