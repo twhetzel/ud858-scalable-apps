@@ -1,13 +1,13 @@
 App Engine application for the Udacity training course.
 
 ## Products
-- [App Engine][1]
-
-## Language
-- [Python 2.7][2]
+- [Google App Engine][1]
 
 ## APIs
 - [Google Cloud Endpoints][3]
+
+## Language
+- [Python 2.7][2]
 
 ## Setup Instructions
 1. Create a Project on the [Google Developers Console][4]
@@ -24,9 +24,27 @@ App Engine application for the Udacity training course.
 1. (Optional) Generate your client library(ies) with [the endpoints tool][7].
 1. Deploy your application.
 
-# Application Features
-The application uses the Google Datastore and includes and an Entity Kind for 
-Conferene, Profile, and Session. <br>
+## Application Features
+API Endpoints<br>
+- Create, edit, register, and unregister for Conference <br>
+- Get conferences user created <br>
+- Get details about a Conference <br>
+- List all Conferences <br>
+- Create Session in a Conference <br>
+- List all Sessions in a Conferece <br>
+- List Sessions by Type <br>
+- List Sessions by Speaker <br>
+- Add/delete/get Sessions in Wishlist <br>
+- Special Queries for Assignment: Get Sessions that are 30 minutes long and Get sessions that contain the word Android. Also, get Sessions that start bfore 7:00pm and are not workshops.<br>
+- Get and save User Profile <br>
+- Get conference announcements (Push Task) <br>
+- Get Featured Speaker (Push Task) <br>
+<br>
+All features are enabled at the API level, however only the following functions are implemented in the web front-end: register/unregister user, create conference, register/unregister to conference, filter list of conferences by city, topic, start month, and amx attendees, list conferences user created, and list conferences user is registered for.
+
+<br><br>
+## Data Model
+The application uses the Google Datastore and includes and an Entity Kind for Conferene, Profile, and Session. <br>
 - Conference Entity: represents a Conference (name, description, location, 
 date, maximum number of attendees, topics, and organizer). <br>
 - Session Entity:  represents a conference session and includes a name, 
@@ -34,10 +52,6 @@ date, duration, highlights, speaker, and start time.<br>
 - Profile Entity: represents a registered user of the application. Fields 
 include display name, T-shirt size, email, and a list of conferences 
 registered and sessions in wishlist. <br>
-<br>
-
-
-
 
 
 [1]: https://developers.google.com/appengine
