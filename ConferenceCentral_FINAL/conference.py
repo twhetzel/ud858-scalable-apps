@@ -437,11 +437,11 @@ class ConferenceApi(remote.Service):
         for session in sessions:
             if ((newSessionSpeaker == session.speaker) and (newSessionSpeaker != None)):
                 isFeaturedSpeaker = True
-                print "Speaker '%s' is a featured speaker \n" % newSessionSpeaker
+                print "Match to '%s'. Speaker '%s' is a featured speaker \n" % (session.speaker, newSessionSpeaker)
                 featuredSpeaker = newSessionSpeaker
                 break
             else:
-                print "This speaker '%s' is _not_ a featured speaker \n" % newSessionSpeaker
+                print "No match to '%s'. This speaker '%s' is _not_ a featured speaker \n" % (session.speaker, newSessionSpeaker)
 
         if isFeaturedSpeaker:
             memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, featuredSpeaker)
