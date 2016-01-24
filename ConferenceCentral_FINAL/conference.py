@@ -332,6 +332,7 @@ class ConferenceApi(remote.Service):
         return (inequality_field, formatted_filters)
 
 
+    # Get list of all Conferences    
     @endpoints.method(ConferenceQueryForms, ConferenceForms,
             path='queryConferences',
             http_method='POST',
