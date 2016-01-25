@@ -388,15 +388,6 @@ class ConferenceApi(remote.Service):
                 'Only the owner can update the conference.')
 
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
-        wsck = data['websafeConferenceKey']
-        #p_key = ndb.Key(Conference, request.websafeConferenceKey).get()
-        p_key = ndb.Key(urlsafe=request.websafeConferenceKey)
-        print "** p_key", p_key
-        
-        c_id = Session.allocate_ids(size=1, parent=p_key)[0]
-        c_key = ndb.Key(Session, c_id, parent=p_key)
-      
-
         # check that startTime is provided
         if not data['startTime']:
             raise endpoints.BadRequestException("Start time is required")
@@ -408,7 +399,14 @@ class ConferenceApi(remote.Service):
             raise endpoints.BadRequestException("Date is required.")
         else:
             data['date']= datetime.strptime(data['date'], '%Y-%m-%d').date()
+
+        wsck = data['websafeConferenceKey']
+        p_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        
+        c_id = Session.allocate_ids(size=1, parent=p_key)[0]
+        c_key = ndb.Key(Session, c_id, parent=p_key)
       
+
         data['key'] = c_key
 
         Session(**data).put()
