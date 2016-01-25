@@ -413,9 +413,7 @@ class ConferenceApi(remote.Service):
         # Push task to determine if speaker of this new 
         # session should be set as the featured speaker
         newSessionSpeaker = data['speaker']
-        print "** Use Task to eval newSessionSpeaker: %s \nfor Conference %s" \
-            % (newSessionSpeaker, wsck)
-
+        
         taskqueue.add(params={'newSessionSpeaker': newSessionSpeaker,
             'websafeConferenceKey': wsck},
             url='/tasks/set_featured_speaker'
@@ -431,25 +429,22 @@ class ConferenceApi(remote.Service):
         speaker of the new session should be set as the featured speaker 
         for the conference.
         """     
-        print "** New Session Speaker: %s \n ** websafeConferenceKey: %s" % (newSessionSpeaker, websafeConferenceKey)
-
-        isFeaturedSpeaker = False
+        
         # create ancestor query to get all sessions in this conference
-        sessions = Session.query(Session.websafeConferenceKey == websafeConferenceKey)
-        print "** Sessions =  ", sessions
+        # sessions = Session.query(Session.websafeConferenceKey == websafeConferenceKey)
+        sessions = Session.query(Session.websafeConferenceKey == websafeConferenceKey).filter(Session.speaker == newSessionSpeaker)
+        print "** FS Sessions: ", sessions
+        count = sessions.count()
+        print "** Number of sessions by this speaker: ", count
 
-        for session in sessions:
-            if ((newSessionSpeaker == session.speaker) and (newSessionSpeaker != None)):
-                isFeaturedSpeaker = True
-                print "Match to '%s'. Speaker '%s' is a featured speaker \n" % (session.speaker, newSessionSpeaker)
-                featuredSpeaker = newSessionSpeaker
-                break
-            else:
-                print "No match to '%s'. This speaker '%s' is _not_ a \
-                featured speaker \n" % (session.speaker, newSessionSpeaker)
+        if count > 1:
+            print "Speaker %s is the Featured Speaker" % newSessionSpeaker
+            # get this speakers session names
+            this_speakers_sessions = Session.query(Session.speaker == newSessionSpeaker)
+            for session_name in this_speakers_sessions:
+                print "** This speakers sessions: ", session_name.name
 
-        if isFeaturedSpeaker:
-            memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, featuredSpeaker)
+            memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, newSessionSpeaker)
 
 
     # Get Featured Speaker from Memcache
@@ -472,7 +467,7 @@ class ConferenceApi(remote.Service):
     # Get Sessions for a Conference
     @endpoints.method(SESSION_CONTAINER, SessionForms, 
         path='getConferenceSessions/{websafeConferenceKey}',
-        http_method='POST',
+        http_method='GET',
         name='getConferenceSessions')
     def getConferenceSessions(self, request):
         '''Given a conference, return all sessions'''
@@ -480,20 +475,13 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-        user_id = getUserId(user)
-
+        
         # get conference key to use to find all sessions in this conference
         conferenceKey = ndb.Key(urlsafe=request.websafeConferenceKey).get()
-        print "** ConferenceKey = ", conferenceKey
         ck = getattr(conferenceKey, "key")
-        print "** Key = ", ck
-        print "** WSCK = ", request.websafeConferenceKey
         
-        # create ancestor query to get all sessions in this conference
-        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey) # Works
-        print "** Sessions =  ", sessions
-        for session in sessions:
-            print "** Each Session = ", session
+        # get all sessions in this conference
+        sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey)
         
         # return sessions in this conference
         return SessionForms(
@@ -523,7 +511,6 @@ class ConferenceApi(remote.Service):
     def _getQuerySession(self, request):
         """Return formatted query from the submitted filters."""
         q = Session.query() 
-        print "** Q = ", q
         inequality_filter, filters = self._formatFilters(request.filters)
 
         # If exists, sort on inequality filter first
@@ -560,22 +547,12 @@ class ConferenceApi(remote.Service):
 
         # get conference key to use to find all sessions in this conference
         conferenceKey = ndb.Key(urlsafe=request.websafeConferenceKey).get()
-        print "** ConferenceKey = ", conferenceKey
         ck = getattr(conferenceKey, "key")
-        print "** Key = ", ck
-        print "** WSCK = ", request.websafeConferenceKey
-
-        print "** TypeOfSession = ", request.typeOfSession
-        for sessionType in request.typeOfSession:
-            print "** Each Type of Session = ", sessionType
-     
+        
         # create ancestor query to get all sessions in this conference
         sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey)
         sessions = sessions.filter(Session.typeOfSession == sessionType) 
-        print "** Sessions =  ", sessions
-        for session in sessions:
-            print "** Each Session = ", session
-
+        
         # return sessions in this conference
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
@@ -598,22 +575,17 @@ class ConferenceApi(remote.Service):
 
         # get speaker value from form request
         sessionSpeakerOfInterest = request.speaker
-        print "** Speaker = ", sessionSpeakerOfInterest
-    
+        
         # query for conferences
         conferences = Conference.query()
         for conf in conferences:
             ck = getattr(conf, 'key')
             wsck = ck.urlsafe()
-            print "** Conference Key = ", wsck
-            #print "** Conference = ", getattr(conf, 'key') # Prints non-websafe key
             
             # For each conference, get Sessions for the Conference filtered by Speaker
             sessions = Session.query(Session.websafeConferenceKey == wsck)
             sessions = sessions.filter(Session.speaker == sessionSpeakerOfInterest)
-            for session in sessions:
-                print "** Sessions filtered By Speaker = ", session
-
+            
         # return sessions in this conference
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
@@ -687,15 +659,12 @@ class ConferenceApi(remote.Service):
     def getSessionsInWishlist(self, request):
         """Get list of sessions in wishlist."""
         prof = self._getProfileFromUser() # get user Profile
-        print "** prof: ", prof
         
         session_keys = [ndb.Key(urlsafe=wsck) for wsck 
         in prof.sessionKeysForWishlist]
-        print "** session_keys: ", session_keys
-
+        
         sessions = ndb.get_multi(session_keys)
-        print "** sessions: ", sessions
-
+        
         # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
@@ -709,12 +678,10 @@ class ConferenceApi(remote.Service):
     def getShortSessions(self, request):
         """Get list of short (30 min or less) sessions."""
         prof = self._getProfileFromUser() # get user Profile
-        print "** prof: ", prof
         
         sessionLength = 30
         sessions = Session.query(Session.duration <= sessionLength)
-        print "** sessions: ", sessions
-
+        
         # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
@@ -728,15 +695,13 @@ class ConferenceApi(remote.Service):
     def getConferencesByKeyword(self, request):
         """Get list of conferences by keyword."""
         prof = self._getProfileFromUser() # get user Profile
-        print "** prof: ", prof
         
         # TODO: Update to enable wildcard like matching functionality
         # TODO: Use ComputedProperty to make query case insenstive, 
         # https://cloud.google.com/appengine/docs/python/ndb/properties#computed
         keyword = 'Android'
         conferences = Conference.query(Conference.name == keyword)
-        print "** conferences: ", conferences
-
+        
         # return set of ConferenceForm objects
         return ConferenceForms(
             items=[self._copyConferenceToForm(conf, "") for conf 
@@ -751,12 +716,10 @@ class ConferenceApi(remote.Service):
     def getMySessionsOfInterest(self, request):
         """Get sessions that start before 7pm and are not workshops."""
         prof = self._getProfileFromUser() # get user Profile
-        print "** prof: ", prof
         
         # Get sessions that are not workshops
         sessionsTypesToAvoid = 'workshop'
         sessions = Session.query(Session.typeOfSession != sessionsTypesToAvoid)
-        print "** Session Types to Avoid: ", sessions
         
         # Find non-workshop sessions that start before 7:00 pm
         mySessionsOfInterest = []
@@ -765,9 +728,7 @@ class ConferenceApi(remote.Service):
         sessionCutOffTime = datetime.strptime(sessionCutOff, "%H:%M:%S").time()
         
         for session in sessions:
-            print "** Session Types to Avoid - StartTime: ", session.startTime
             if(session.startTime <= sessionCutOffTime):
-                print "** Session Of Interest: ", session
                 mySessionsOfInterest.append(session)
         
         # return set of SessionForm objects per Session
