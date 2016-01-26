@@ -441,7 +441,7 @@ class ConferenceApi(remote.Service):
         
         if count >= 1:
             for session in sessions:
-                separator = ","
+                separator = ", "
                 thisSpeakersSessions = separator.join([session.name for session in sessions])
                 
             speakerNameAndSessions = "Featured Speaker is "+newSessionSpeaker+\
@@ -578,7 +578,10 @@ class ConferenceApi(remote.Service):
 
         # get speaker value from form request
         sessionSpeakerOfInterest = request.speaker
+        print "** Speaker: ", sessionSpeakerOfInterest
         
+        # store all session objects across all conferences where this speaker is presenting
+        all_sessions = []
         # query for conferences
         conferences = Conference.query()
         for conf in conferences:
@@ -589,9 +592,12 @@ class ConferenceApi(remote.Service):
             sessions = Session.query(Session.websafeConferenceKey == wsck)
             sessions = sessions.filter(Session.speaker == sessionSpeakerOfInterest)
             
-        # return sessions in this conference
+            for session in sessions:
+                all_sessions.append(session)
+
+        # return sessions in all conferences
         return SessionForms(
-            items=[self._copySessionToForm(session) for session in sessions]
+            items=[self._copySessionToForm(session) for session in all_sessions]
         )
 
 
