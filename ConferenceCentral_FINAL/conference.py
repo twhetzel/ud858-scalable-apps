@@ -373,7 +373,8 @@ class ConferenceApi(remote.Service):
 
         # Make sure a websafeConferenceKey is provided (for testing)
         if not request.websafeConferenceKey:
-            raise endpoints.BadRequestException("Session 'websafeConferenceKey' field required. Use form filters to add websafeConferenceKey")
+            raise endpoints.BadRequestException("Session 'websafeConferenceKey' \
+                field required. Use form filters to add websafeConferenceKey")
 
         # get key of conference to create sessions for
         conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
@@ -406,14 +407,16 @@ class ConferenceApi(remote.Service):
         c_id = Session.allocate_ids(size=1, parent=p_key)[0]
         c_key = ndb.Key(Session, c_id, parent=p_key)
       
-
         data['key'] = c_key
 
         Session(**data).put()
+        
+        # get speaker name
+        newSessionSpeaker = data['speaker']
+        print "** newSessionSpeaker: ", newSessionSpeaker
+
         # Push task to determine if speaker of this new 
         # session should be set as the featured speaker
-        newSessionSpeaker = data['speaker']
-        
         taskqueue.add(params={'newSessionSpeaker': newSessionSpeaker,
             'websafeConferenceKey': wsck},
             url='/tasks/set_featured_speaker'
@@ -430,21 +433,21 @@ class ConferenceApi(remote.Service):
         for the conference.
         """     
         
-        # create ancestor query to get all sessions in this conference
-        # sessions = Session.query(Session.websafeConferenceKey == websafeConferenceKey)
-        sessions = Session.query(Session.websafeConferenceKey == websafeConferenceKey).filter(Session.speaker == newSessionSpeaker)
-        print "** FS Sessions: ", sessions
+        # get all sessions in this conference by this speaker 
+        sessions = Session.query(Session.websafeConferenceKey == websafeConferenceKey)\
+        .filter(Session.speaker == newSessionSpeaker)
+        
         count = sessions.count()
-        print "** Number of sessions by this speaker: ", count
+        
+        if count >= 1:
+            for session in sessions:
+                separator = ","
+                thisSpeakersSessions = separator.join([session.name for session in sessions])
+                
+            speakerNameAndSessions = "Featured Speaker is "+newSessionSpeaker+\
+            " presenting sessions "+thisSpeakersSessions
 
-        if count > 1:
-            print "Speaker %s is the Featured Speaker" % newSessionSpeaker
-            # get this speakers session names
-            this_speakers_sessions = Session.query(Session.speaker == newSessionSpeaker)
-            for session_name in this_speakers_sessions:
-                print "** This speakers sessions: ", session_name.name
-
-            memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, newSessionSpeaker)
+            memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, speakerNameAndSessions)
 
 
     # Get Featured Speaker from Memcache
@@ -680,7 +683,7 @@ class ConferenceApi(remote.Service):
         prof = self._getProfileFromUser() # get user Profile
         
         sessionLength = 30
-        sessions = Session.query(Session.duration <= sessionLength)
+        sessions = Session.query(Session.duration <= sessionLength).filter(Session.duration != None)
         
         # return set of SessionForm objects per Session
         return SessionForms(
