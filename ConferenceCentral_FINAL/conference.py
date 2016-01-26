@@ -703,10 +703,10 @@ class ConferenceApi(remote.Service):
         http_method="GET", name='getConferencesByKeyword')
     def getConferencesByKeyword(self, request):
         """Get list of conferences by keyword."""
-        prof = self._getProfileFromUser() # get user Profile
         
+        # TODO: Not for grading
         # TODO: Update to enable wildcard like matching functionality
-        # TODO: Use ComputedProperty to make query case insenstive, 
+        # TODO: Use ComputedProperty to make query case insenstive
         # https://cloud.google.com/appengine/docs/python/ndb/properties#computed
         keyword = 'Android'
         conferences = Conference.query(Conference.name == keyword)
@@ -715,7 +715,29 @@ class ConferenceApi(remote.Service):
         return ConferenceForms(
             items=[self._copyConferenceToForm(conf, "") for conf 
             in conferences]
-        )  
+        )
+
+    # Get conferences that mid-day
+    @endpoints.method(message_types.VoidMessage, SessionForms, 
+        path='sessions/midday',
+        http_method="GET", name='getMiddaySessions')
+    def getMiddaySessions(self, request):
+        """Get list of conference sessions that are mid-day, after 10am and before 3pm."""
+        
+        morningCutoff = "10:00"
+        morningCutoffTime = datetime.strptime(morningCutoff, "%H:%M").time()
+        
+        afternoonCutoff = "15:00"
+        afternoonCutoff = datetime.strptime(afternoonCutoff, "%H:%M").time()
+
+        midday_sessions = Session.query(Session.startTime >= morningCutoffTime and \
+            Session.startTime <= afternoonCutoff)
+
+        # return set of SessionForm objects
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session 
+            in midday_sessions]
+        ) 
     
     
     # Get sessions that start before 7:00pm and are not workshops
