@@ -445,7 +445,7 @@ class ConferenceApi(remote.Service):
                 thisSpeakersSessions = separator.join([session.name for session in sessions])
                 
             speakerNameAndSessions = "Featured Speaker is "+newSessionSpeaker+\
-            " presenting sessions "+thisSpeakersSessions
+            " presenting sessions: "+thisSpeakersSessions
 
             memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, speakerNameAndSessions)
 
