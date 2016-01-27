@@ -40,7 +40,7 @@ API Endpoints<br>
 - Get conference announcements (Push Task) <br>
 - Get Featured Speaker (Push Task) <br>
 <br>
-All features are enabled at the API level, however only the following functions are implemented in the web front-end: register/unregister user, create conference, register/unregister to conference, filter list of conferences by city, topic, start month, and amx attendees, list conferences user created, and list conferences user is registered for.
+All features are enabled at the API level, however only the following functions are implemented in the web front-end: register/unregister user, create conference, register/unregister to conference, filter list of conferences by city, topic, start month, and max attendees, list conferences user created, and list conferences user is registered for.
 
 <br><br>
 ## Data Model
@@ -52,7 +52,23 @@ date, duration, highlights, speaker, and start time.<br>
 - Profile Entity: represents a registered user of the application. Fields 
 include display name, T-shirt size, email, and a list of conferences 
 registered and sessions in wishlist. <br>
+<br>
+The Profile Entity is the Ancestor to a Conference Entity and the Conference Entity is an anccestor to the Session Entity.
+<br>
 
+<br><br>
+## Problematic Query
+Implement a query for conference sessions that are not workshops and are not after 7pm.
+<br>
+The problem is that an inequality filter in Datastore can be applied to at most one property. Filtering 
+for sessions that are not workshops involves the typeOfSession property and the restriction for sessions
+not after 7pm involves the startTime property, therefore two properties are involved which need an 
+inequality filter.
+
+The solution implemented to solve this is to first get all sessions for a given conference that are 
+not of the type workshops. The resulting sessions are then examined for sessions that are before 7pm. This order was selected because there are multiple types of sessions and querying for session not equal to workshops is more straighforward/efficient than the alternative of querying for all sessions before 7pm and then having to iterate through these sessions to check if they are of the type workshops. Using the method implemented has Datastore the majority of the filtering work.
+
+<br><br>
 
 [1]: https://developers.google.com/appengine
 [2]: http://python.org
