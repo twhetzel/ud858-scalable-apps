@@ -2,6 +2,7 @@ App Engine application for the Udacity training course.
 
 ## Products
 - [Google App Engine][1]
+- [Google Datastore] [8]
 
 ## APIs
 - [Google Cloud Endpoints][3]
@@ -58,9 +59,10 @@ date, duration, highlights, speaker, and start time.<br>
 -- These properties are modeled as a TimeProperty: startTime<br>
 - Profile Entity: represents a registered user of the application. Fields 
 include display name, T-shirt size, email, and a list of conferences 
-registered and sessions in wishlist. 
+registered and sessions in wishlist. <br>
+
 <br><br>
-The Profile Entity is the Ancestor to a Conference Entity and the Conference Entity is an anccestor to the Session Entity.
+- The Profile Entity is the Ancestor to a Conference Entity and the Conference Entity is an ancestor to the Session Entity. 
 <br>
 
 <br><br>
@@ -84,3 +86,4 @@ not of the type workshops. The resulting sessions are then examined for sessions
 [5]: https://cloud.google.com/appengine/downloads
 [6]: https://localhost:8080/
 [7]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
+[8]: https://cloud.google.com/appengine/docs/python/datastore/
