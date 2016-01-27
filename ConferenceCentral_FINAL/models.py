@@ -94,10 +94,6 @@ class Session(ndb.Model):
     date                    = ndb.DateProperty()
     startTime               = ndb.TimeProperty()
 
-# class Speaker(ndb.model):
-#     """Speaker - the name of the person presenting one or more Sessions."""
-#     name = ndb.StringProperty(required=True)
-
 class SessionForm(messages.Message):
     """SessionForm -- Session outbound form message"""
     websafeConferenceKey    = messages.StringField(1)
