@@ -47,12 +47,19 @@ All features are enabled at the API level, however only the following functions 
 The application uses the Google Datastore and includes and an Entity Kind for Conferene, Profile, and Session. <br>
 - Conference Entity: represents a Conference (name, description, location, 
 date, maximum number of attendees, topics, and organizer). <br>
+- - These properties are modeled as StringProperties: name, description, organizerId, topics (enumeration), and city. Topics and name are required since these represent the minimal information to describe a conference. 
+- - These properties are modeled as a DateProperty: startDate and endDate.
+- - These properties are modeled as an IntegerProperty: month, maxAttendees, and seatsAvailable<br>
 - Session Entity:  represents a conference session and includes a name, 
 date, duration, highlights, speaker, and start time.<br>
+- - These properties are modeled as a StringProperty: websafeConferenceKey, name, speaker, and typeOfSession (enumeration). Name is required.<br>
+- - These properties are modeled as an IntegerProperty: duration<br>
+- - These properties are modeled as a DateTimeProperty: date<br>
+- - These properties are modeled as a TimeProperty: startTime<br>
 - Profile Entity: represents a registered user of the application. Fields 
 include display name, T-shirt size, email, and a list of conferences 
-registered and sessions in wishlist. <br>
-<br>
+registered and sessions in wishlist. 
+<br><br>
 The Profile Entity is the Ancestor to a Conference Entity and the Conference Entity is an anccestor to the Session Entity.
 <br>
 
