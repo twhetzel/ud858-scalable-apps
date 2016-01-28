@@ -439,10 +439,9 @@ class ConferenceApi(remote.Service):
         
         count = sessions.count()
         
-        if count >= 1:
-            for session in sessions:
-                separator = ", "
-                thisSpeakersSessions = separator.join([session.name for session in sessions])
+        if count > 1:
+            separator = ", "
+            thisSpeakersSessions = separator.join([session.name for session in sessions])
                 
             speakerNameAndSessions = "Featured Speaker is "+newSessionSpeaker+\
             " presenting sessions: "+thisSpeakersSessions
