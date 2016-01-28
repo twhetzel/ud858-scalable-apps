@@ -421,7 +421,7 @@ class ConferenceApi(remote.Service):
             'websafeConferenceKey': wsck},
             url='/tasks/set_featured_speaker'
         )
-        return request
+        return self._copySessionToForm(request)
 
 
     # Use Push Task to determine featured speaker, a speaker that has 
