@@ -413,8 +413,7 @@ class ConferenceApi(remote.Service):
         
         # get speaker name
         newSessionSpeaker = data['speaker']
-        print "** newSessionSpeaker: ", newSessionSpeaker
-
+        
         # Push task to determine if speaker of this new 
         # session should be set as the featured speaker
         taskqueue.add(params={'newSessionSpeaker': newSessionSpeaker,
@@ -441,10 +440,13 @@ class ConferenceApi(remote.Service):
         
         if count > 1:
             separator = ", "
-            thisSpeakersSessions = separator.join([session.name for session in sessions])
+            thisSpeakersSessions = separator.join([session.name \
+                for session in sessions])
                 
-            speakerNameAndSessions = "Featured Speaker is "+newSessionSpeaker+\
-            " presenting sessions: "+thisSpeakersSessions
+            # speakerNameAndSessions = "Featured Speaker is "+newSessionSpeaker+\
+            # " presenting sessions: "+thisSpeakersSessions
+            speakerNameAndSessions = "Featured Speaker is {} presenting sessions: {}"\
+            .format(newSessionSpeaker, thisSpeakersSessions)
 
             memcache.set(MEMCACHE_FEATURED_SPEAKERS_KEY, speakerNameAndSessions)
 
@@ -536,7 +538,7 @@ class ConferenceApi(remote.Service):
     # Get Sessions by Type 
     @endpoints.method(SESSION_CONTAINER, SessionForms,
         path='getConferenceSessionsByType/{websafeConferenceKey}/{typeOfSession}',
-        http_method='POST',
+        http_method='GET',
         name='getConferenceSessionsByType')
     def getConferenceSessionsByType(self, request):
         '''Given a conference, return all sessions of a specified type'''
@@ -553,8 +555,8 @@ class ConferenceApi(remote.Service):
         
         # create ancestor query to get all sessions in this conference
         sessions = Session.query(Session.websafeConferenceKey == request.websafeConferenceKey)
-        sessions = sessions.filter(Session.typeOfSession == sessionType) 
-        
+        sessions = sessions.filter(Session.typeOfSession.IN(request.typeOfSession))
+
         # return sessions in this conference
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
@@ -577,7 +579,6 @@ class ConferenceApi(remote.Service):
 
         # get speaker value from form request
         sessionSpeakerOfInterest = request.speaker
-        print "** Speaker: ", sessionSpeakerOfInterest
         
         # store all session objects across all conferences where this speaker is presenting
         all_sessions = []
