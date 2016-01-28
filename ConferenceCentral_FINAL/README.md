@@ -36,7 +36,7 @@ API Endpoints<br>
 - List Sessions by Type <br>
 - List Sessions by Speaker <br>
 - Add/delete/get Sessions in Wishlist <br>
-- Special Queries for Assignment: Get Sessions that are 30 minutes long and Get sessions that contain the word Android. Also, get Sessions that start bfore 7:00pm and are not workshops.<br>
+- Special Queries for Assignment: Get Sessions that are 30 minutes long and Get sessions that are mid-day (defined as after 10am and before 3pm). Also, get Sessions that start bfore 7:00pm and are not workshops.<br>
 - Get and save User Profile <br>
 - Get conference announcements (Push Task) <br>
 - Get Featured Speaker (Push Task) <br>
